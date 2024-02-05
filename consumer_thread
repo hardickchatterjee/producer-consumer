@@ -1,0 +1,57 @@
+int consumer_thread_function(void *pv)
+{
+	allow_signal(SIGKILL);
+	int no_of_process_consumed = 0;
+
+	while (!kthread_should_stop())
+	{
+		// TODO Implement your consumer kernel thread here
+		// use end_flag (see kernel module exit function) to check if the kernel thread should stop
+		// if end_flag, then break
+		// use down() and up() for semaphores
+		// Hint: Please refer to sample code to see how to use process_info struct
+		// Hint: end_flag should be checked after down() and before up()
+
+    down(&full);
+    down(&mutex);
+    if (end_flag) {
+      up(&mutex);
+      up(&full);
+      break;
+    }
+
+    unsigned long long start_time_ns = buffer[use].start_time;
+    unsigned long nowpid = buffer[use].pid;
+
+    buffer[use].pid = 0;
+    buffer[use].start_time = 0;
+    buffer[use].boot_time = 0;
+    use++;
+
+    if (end_flag) {
+      up(&mutex);
+      up(&full);
+      break;
+    }
+    up(&mutex);
+    up(&empty);
+
+		unsigned long long ktime = ktime_get_ns();
+		unsigned long long process_time_elapsed = (ktime - start_time_ns) / 1000000000;
+		total_time_elapsed += ktime - start_time_ns;
+
+
+		unsigned long long process_time_hr = process_time_elapsed / 3600;
+		unsigned long long process_time_min = (process_time_elapsed - 3600 * process_time_hr) / 60;
+		unsigned long long process_time_sec = (process_time_elapsed - 3600 * process_time_hr) - (process_time_min * 60);
+    unsigned long long process_pid = current->pid;
+
+		no_of_process_consumed++;
+		total_no_of_process_consumed++;
+		PCINFO("[%s] Consumed Item#-%d on buffer index:%d::PID:%lu \t Elapsed Time %llu:%llu:%llu \n", current->comm,
+			   no_of_process_consumed, (use + buffSize - 1) % buffSize, nowpid, process_time_hr, process_time_min, process_time_sec);
+	}
+
+	PCINFO("[%s] Consumer Thread stopped.\n", current->comm);
+	return 0;
+}
